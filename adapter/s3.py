@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor as PE
-import boto3
+import boto3, mimetypes
 
 class S3Adapter:
     bulksize = 50
@@ -28,7 +28,7 @@ class S3Adapter:
         try:
             key = item['destination']
             body = item['body']
-            self.client.put_object(Bucket=self.bucket, Key=key, Body=body)
+            self.client.put_object(Bucket=self.bucket, Key=key, Body=body, ContentType=item['content-type'])
             print('[info] Uploaded successfully - key: "{}"'.format(key))
 
             return True
