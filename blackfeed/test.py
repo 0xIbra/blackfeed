@@ -1,9 +1,10 @@
 from downloader import Downloader
 from adapter.s3 import S3Adapter
+import json
 
 payload = [
     {
-        'url': 'https://www.businessinsider.fr/content/uploads/2019/03/5c796e8726289858fe181c44-1536-1152.jpg',
+        'url': 'https://www.businessinsider.fr/content/uploads/2019/03/-1536-1152.jpg',
         'filename': 'ferrari.jpg',
         'destination': 'ferrari/458/ferrari-458.jpg'
     },
@@ -58,4 +59,8 @@ downloader = Downloader(S3Adapter(bucket='publicar-dev'), multi=True)
 downloader.process(payload)
 stats = downloader.get_stats()
 
-print('[info] stats', stats)
+print('STATS', stats)
+
+# File = open('output.json', 'w')
+# File.write(json.dumps(stats))
+# File.close()
