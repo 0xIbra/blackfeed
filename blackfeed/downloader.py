@@ -1,31 +1,69 @@
 from concurrent.futures import ThreadPoolExecutor as PE
 from requests import session as RequestSession
 from requests.exceptions import RequestException
+from helper.hasher import hashit
+import os
 
 class Downloader:
     bulksize = 50
     session = None
 
-    def __init__(self, adapter, multi=False, bulksize=50):
+    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None):
         self.adapter = adapter
-        self.bulksize = bulksize
         self.multi = multi
+        self.bulksize = bulksize
+
+        self.stateless = stateless
+
         self.session = RequestSession()
         self.stats = {
             'total_images': 0,
+            'ignored': {
+                'total': 0,
+                'files': {}
+            },
             'downloads': {
                 'total_successes': 0,
                 'total_errors': 0,
-                'successes': [],
-                'errors': []
+                'successes': {},
+                'errors': {}
             },
             'uploads': {
                 'total_successes': 0,
                 'total_errors': 0,
-                'successes': [],
-                'errors': []
+                'successes': {},
+                'errors': {}
             }
         }
+
+        if not self.stateless:
+            self.state_id = state_id
+            if self.state_id is None:
+                from uuid import uuid4
+                self.state_id = str(uuid4())
+
+            self.states = {}
+
+    def load_states(self, file_path):
+        if self.stateless:
+            print('[warning] You cannot load states in a stateless environment.')
+            return False
+
+        file_path = '{}.txt'.format(file_path)
+
+        if not os.path.isfile(file_path):
+            raise Exception('File "{}" does not exist'.format(file_path))
+
+        try:
+            with open(file_path, 'r') as f:
+                line = f.readline()
+                while line:
+                    checksum = line.strip()
+                    destination, checksum = checksum.split(" ")
+                    self.states[destination] = checksum
+                    line = f.readline()
+        except Exception as e:
+            print('[error] Could not load states. reason: {}'.format(e))
 
     def process(self, queue):
         self.stats['total_images'] = len(queue)
@@ -33,6 +71,9 @@ class Downloader:
             self.handle(queue)
         else:
             self.handle_multi(queue)
+
+        if self.stateless == False:
+            self.save_states()
 
     def handle_multi(self, queue):
         download_queue = []
@@ -45,18 +86,36 @@ class Downloader:
                         item = request['item']
                         response = request['response']
                         if not response['status']:
-                            self.stats['downloads']['errors'].append(response)
+                            it = self.stats['downloads']['total_errors']
+                            self.stats['downloads']['errors'][it] = response
                             self.stats['downloads']['total_errors'] += 1
+
                             print('[error] Could not download file: "{}"'.format(item['url']))
+
                             continue
+
+                        if item['destination'] in self.states:
+                            if self.states[item['destination']] == hashit(response['content']):
+                                text = '[info] Identical file: "{}" found.'.format(item['url'])
+                                print(text)
+
+                                item['message'] = text
+                                index = len(self.states['ignored']['files'])
+                                self.stats['ignored']['files'][index] = item
+                                self.stats['ignored']['total'] += 1
+
+                                continue
+
+                        self.states[item['destination']] = hashit(response['content'])
 
                         adapter_queue.append({
                             'destination': item['destination'],
                             'body': response['content'],
-                            'content-type': response['headers']['Content-Type']
+                            'content-type': response['content-type']
                         })
 
-                        self.stats['downloads']['successes'].append(response)
+                        it = self.stats['downloads']['total_successes']
+                        self.stats['downloads']['successes'][it] = response
                         self.stats['downloads']['total_successes'] += 1
 
                 stats = self.adapter.process(adapter_queue)
@@ -69,25 +128,44 @@ class Downloader:
                     item = request['item']
                     response = request['response']
                     if not response['status']:
-                        self.stats['downloads']['errors'].append(response)
+                        it = self.stats['downloads']['total_errors']
+                        self.stats['downloads']['errors'][it] = response
                         self.stats['downloads']['total_errors'] += 1
 
                         print('[error] Could not download file: "{}"'.format(item['url']))
 
                         continue
 
+                    if item['destination'] in self.states:
+                        if self.states[item['destination']] == hashit(response['content']):
+                            text = '[info] Identical file: "{}" found.'.format(item['url'])
+                            print(text)
+
+                            item['message'] = text
+                            item['content-type'] = response['content-type']
+
+                            index = len(self.stats['ignored']['files'])
+                            self.stats['ignored']['files'][index] = item
+                            self.stats['ignored']['total'] += 1
+
+                            continue
+
+                    self.states[item['destination']] = hashit(response['content'])
+
                     adapter_queue.append({
                         'destination': item['destination'],
                         'body': response['content'],
-                        'content-type': response['headers']['Content-Type']
+                        'content-type': response['content-type']
                     })
 
-                    self.stats['downloads']['successes'].append({
+                    response = {
                         'url': response['url'],
                         'httpcode': response['httpcode'],
                         'status': response['status'],
-                        'headers': response['headers']
-                    })
+                        'content-type': response['content-type']
+                    }
+                    it = self.stats['downloads']['total_successes']
+                    self.stats['downloads']['successes'][it] = response
                     self.stats['downloads']['total_successes'] += 1
 
             stats = self.adapter.process(adapter_queue)
@@ -101,26 +179,49 @@ class Downloader:
         for item in queue:
             try:
                 download = self.download(item)
+                item = download['item']
                 http_response = download['response']
                 if not http_response['status']:
                     print('[error] Could not download file: "{}"'.format(item['url']))
-                    self.stats['downloads']['errors'].append(http_response)
+                    
+                    it = self.stats['downloads']['total_errors']
+                    self.stats['downloads']['errors'][it] = http_response
                     self.stats['downloads']['total_errors'] += 1
 
                     continue
 
+                if item['destination'] in self.states:
+                    if self.states[item['destination']] == hashit(http_response['content']):
+                        text = '[info] Identical file: "{}" found.'.format(item['url'])
+                        print(text)
+
+                        item['message'] = text
+                        item['content-type'] = response['content-type']
+
+                        index = len(self.stats['ignored']['files'])
+                        self.stats['ignored']['files'][index] = item
+                        self.stats['ignored']['total'] += 1
+
+                        continue
+
+                self.states[item['destination']] = hashit(http_response['content'])
+
                 upload_queue.append({
                     'destination': item['destination'],
                     'body': http_response['content'],
-                    'content-type': http_response['headers']['Content-Type']
+                    'content-type': http_response['content-type']
                 })
 
-                self.stats['downloads']['successes'].append({
+                response = {
                     'url': http_response['url'],
                     'httpcode': http_response['httpcode'],
                     'status': http_response['status'],
-                    'headers': http_response['headers']
-                })
+                    'content-type': http_response['content-type']
+                }
+
+                it = self.stats['downloads']['total_successes']
+                self.stats['downloads']['successes'][it] = response
+                self.stats['downloads']['total_successes'] += 1
             except Exception as e:
                 print('[error]', e)
 
@@ -151,7 +252,7 @@ class Downloader:
                 'url': url,
                 'httpcode': request.status_code,
                 'status': request.ok,
-                'headers': request.headers
+                'content-type': request.headers.get('Content-Type')
             }
             if request.ok:
                 response['content'] = request.content
@@ -168,14 +269,21 @@ class Downloader:
         self.stats['uploads']['total_successes'] += total_successes
         self.stats['uploads']['total_errors'] += total_errors
 
-        for success in stats['successes']:
-            self.stats['uploads']['successes'].append(success)
+        for it, success in enumerate(stats['successes']):
+            self.stats['uploads']['successes'][it] = success
         
-        for error in stats['errors']:
-            self.stats['uploads']['errors'].append(error)
+        for it, error in enumerate(stats['errors']):
+            self.stats['uploads']['errors'][it] = error
 
     def get_stats(self):
         return self.stats
 
-    def append_stats(self, stats):
-        pass
+    def save_states(self):
+        """ Saves all the checksums to a file """
+        outputtext = ''
+        for (key, value) in self.states.items():
+            outputtext += '{} {}\n'.format(key, value)
+
+        if outputtext != '':
+            with open('{}.txt'.format(self.state_id), 'w') as f:
+                f.write(outputtext)
