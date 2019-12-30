@@ -5,13 +5,13 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='blackfeed',
-    version='0.0.7',
+    version='0.0.8',
     author='Ibragim Abubakarov',
     author_email='ibragim.ai95@gmail.com',
     description='A micro python library that allow the download of thousands of files concurrently',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/ibragim64/downloader',
+    url='https://github.com/ibragim64/blackfeed',
     packages=['blackfeed'],
     install_requires=['requests', 'boto3'],
     classifiers=[
