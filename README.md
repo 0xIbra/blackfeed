@@ -73,7 +73,7 @@ uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
 
 retriever = ElasticDownloader()
 res = retriever.download(uri, localpath='/tmp/myfile.csv') # localfile is optional
-# res: False if **error** and the local uri of file if **success**
+# .download() function returns False if there was an error or return the local path of the downloaded file if it was a success.
 print(res)
 ```
 ```bash
@@ -87,7 +87,7 @@ from blackfeed.elasticdownloader import ElasticDownloader
 uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
 
 retriever = ElasticDownloader()
-res = retriever.retrieve(uri) # Return type: io.BytesIO object
+res = retriever.retrieve(uri) # Return type: io.BytesIO | False
 
 with open('/tmp/myfile.csv', 'wb') as f:
     f.write(res.getvalue())
