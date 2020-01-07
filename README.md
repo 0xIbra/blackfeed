@@ -60,3 +60,37 @@ downloader.load_states('filename') # This will load states from "filename.txt"
 downloader.process(queue)
 stats = downloader.get_stats() # Statistics 
 ```
+
+## ElasticDownloader
+> Let's you to download/retrieve files from FTP, SFTP and HTTP/S servers easily.
+
+### Examples
+#### Downloading file from FTP 
+```python
+from blackfeed.elasticdownloader import ElasticDownloader
+
+uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
+
+retriever = ElasticDownloader()
+res = retriever.download(uri, localpath='/tmp/myfile.csv') # localfile is optional
+# res: False if **error** and the local uri of file if **success**
+print(res)
+```
+```bash
+/tmp/myfile.csv
+```
+
+### Retrieving binary content of file from FTP
+```python
+from blackfeed.elasticdownloader import ElasticDownloader
+
+uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
+
+retriever = ElasticDownloader()
+res = retriever.retrieve(uri) # Return type: io.BytesIO object
+
+with open('/tmp/myfile.csv', 'wb') as f:
+    f.write(res.getvalue())
+```
+**ElasticDownloader** can handle FTP, SFTP and HTTP URIs automatically.
+Use the method **download** to download file locally and use the **retrieve** method to get the binary content of a file.

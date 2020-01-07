@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor as PE
 from requests import session as RequestSession
 from requests.exceptions import RequestException
-from helper.hasher import hashit
+from blackfeed.helper.hasher import hashit
 import os
 
 class Downloader:
@@ -47,6 +47,7 @@ class Downloader:
     def load_states(self, file_path):
         if self.stateless:
             print('[warning] You cannot load states in a stateless environment.')
+
             return False
 
         file_path = '{}.txt'.format(file_path)

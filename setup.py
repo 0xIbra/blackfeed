@@ -12,8 +12,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/ibragim64/blackfeed',
-    packages=['blackfeed', 'blackfeed.adapter', 'blackfeed.helper'],
-    install_requires=['requests', 'boto3'],
+    packages=['blackfeed', 'blackfeed.adapter', 'blackfeed.helper', 'blackfeed.elastic'],
+    install_requires=['requests', 'boto3', 'pysftp'],
     classifiers=[
         "Programming Language :: Python :: 3"
     ]
