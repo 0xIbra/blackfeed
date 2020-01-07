@@ -15,6 +15,10 @@ setuptools.setup(
     packages=['blackfeed', 'blackfeed.adapter', 'blackfeed.helper', 'blackfeed.elastic'],
     install_requires=['requests', 'boto3', 'pysftp'],
     classifiers=[
-        "Programming Language :: Python :: 3"
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
+        "Intended Audience :: Developers",
+        "Topic :: Internet :: WWW/HTTP",
+        "Topic :: Internet :: File Transfer Protocol (FTP)"
     ]
 )
