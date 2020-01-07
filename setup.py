@@ -5,9 +5,11 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='blackfeed',
-    version='0.0.11',
+    version='0.0.12',
     author='Ibragim Abubakarov',
     author_email='ibragim.ai95@gmail.com',
+    maintainer='Ibragim Abubakarov',
+    maintainer_email='ibragim.ai95@gmail.com',
     description='A python package that allows the download of thousands of files concurrently',
     long_description=long_description,
     long_description_content_type='text/markdown',
