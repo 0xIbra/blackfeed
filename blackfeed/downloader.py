@@ -2,13 +2,13 @@ from concurrent.futures import ThreadPoolExecutor as PE
 from requests import session as RequestSession
 from requests.exceptions import RequestException
 from blackfeed.helper.hasher import hashit
-import os
+import os, tempfile
 
 class Downloader:
     bulksize = 50
     session = None
 
-    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None):
+    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None, verbose=False):
         self.adapter = adapter
         self.multi = multi
         self.bulksize = bulksize
@@ -43,6 +43,8 @@ class Downloader:
                 self.state_id = str(uuid4())
 
             self.states = {}
+
+        self.verbose = verbose
 
     def load_states(self, file_path):
         if self.stateless:
@@ -79,31 +81,40 @@ class Downloader:
     def handle_multi(self, queue):
         download_queue = []
         adapter_queue = []
+        it = 0
+        count = self.stats['total_images']
         for item in queue:
             download_queue.append(item)
+
             if (len(download_queue) % self.bulksize) == 0:
                 with PE(max_workers=self.bulksize) as executor:
                     for request in executor.map(self.download, download_queue):
                         item = request['item']
                         response = request['response']
                         if not response['status']:
+                            print(response)
+                            exit()
                             it = self.stats['downloads']['total_errors']
                             self.stats['downloads']['errors'][it] = response
                             self.stats['downloads']['total_errors'] += 1
 
                             print('[error] Could not download file: "{}"'.format(item['url']))
+                            it += 1
+
 
                             continue
 
                         if item['destination'] in self.states:
                             if self.states[item['destination']] == hashit(response['content']):
                                 text = '[info] Identical file: "{}" found.'.format(item['url'])
-                                print(text)
+                                if self.verbose:
+                                    print(text)
 
                                 item['message'] = text
-                                index = len(self.states['ignored']['files'])
+                                index = len(self.stats['ignored']['files'])
                                 self.stats['ignored']['files'][index] = item
                                 self.stats['ignored']['total'] += 1
+                                it += 1
 
                                 continue
 
@@ -115,13 +126,18 @@ class Downloader:
                             'content-type': response['content-type']
                         })
 
+                        del response['content']
+
                         it = self.stats['downloads']['total_successes']
                         self.stats['downloads']['successes'][it] = response
                         self.stats['downloads']['total_successes'] += 1
+                        it += 1
 
                 stats = self.adapter.process(adapter_queue)
                 self.handle_upload_stats(stats)
-                adapter_queue = []
+                adapter_queue.clear()
+                download_queue.clear()
+                print('{}/{}'.format(it, count))
 
         if len(download_queue) > 0:
             with PE(max_workers=self.bulksize) as executor:
@@ -140,7 +156,8 @@ class Downloader:
                     if item['destination'] in self.states:
                         if self.states[item['destination']] == hashit(response['content']):
                             text = '[info] Identical file: "{}" found.'.format(item['url'])
-                            print(text)
+                            if self.verbose:
+                                print(text)
 
                             item['message'] = text
                             item['content-type'] = response['content-type']
@@ -171,7 +188,8 @@ class Downloader:
 
             stats = self.adapter.process(adapter_queue)
             self.handle_upload_stats(stats)
-            adapter_queue = []
+            adapter_queue.clear()
+            download_queue.clear()
 
     def handle(self, queue):
         # Handles downloads without multithreading
@@ -240,7 +258,7 @@ class Downloader:
             print('[error]', e)
 
     def download(self, item):
-        # Downloads a single file and returns the HTTP response
+        """ Downloads a single file and returns the HTTP response """
 
         if self.session is None:
             self.session = RequestSession()
@@ -286,5 +304,8 @@ class Downloader:
             outputtext += '{} {}\n'.format(key, value)
 
         if outputtext != '':
-            with open('{}.txt'.format(self.state_id), 'w') as f:
+            with open(os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id)), 'w') as f:
                 f.write(outputtext)
+
+    def get_states_file(self):
+        return os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id))

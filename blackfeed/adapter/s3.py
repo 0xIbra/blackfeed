@@ -5,10 +5,11 @@ import boto3, mimetypes
 class S3Adapter:
     bulksize = 50
 
-    def __init__(self, bucket, bulksize=50):
+    def __init__(self, bucket, bulksize=50, verbose=False):
         self.client = boto3.client('s3')
         self.bucket = bucket
         self.bulksize = bulksize
+        self.verbose = verbose
 
     def process(self, payload):
         stats = { 'total': len(payload), 'successes': [], 'errors': [] }
@@ -26,7 +27,8 @@ class S3Adapter:
         try:
             body = item['body']
             response = self.client.put_object(Bucket=self.bucket, Key=key, Body=body, ContentType=item['content-type'])
-            print('[info] Uploaded successfully - key: "{}"'.format(key))
+            if self.verbose:
+                print('[info] Uploaded successfully - key: "{}"'.format(key))
 
             response = {
                 'type': 's3',
