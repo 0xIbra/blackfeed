@@ -52,7 +52,8 @@ class Downloader:
 
             return False
 
-        file_path = '{}.txt'.format(file_path)
+        if not file_path.endswith('.txt'):
+            file_path = '{}.txt'.format(file_path)
 
         if not os.path.isfile(file_path):
             raise Exception('File "{}" does not exist'.format(file_path))
