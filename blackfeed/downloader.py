@@ -47,6 +47,8 @@ class Downloader:
         self.verbose = verbose
 
     def load_states(self, file_path):
+        """ Loads states from local file """
+
         if self.stateless:
             print('[warning] You cannot load states in a stateless environment.')
 
@@ -70,6 +72,8 @@ class Downloader:
             print('[error] Could not load states. reason: {}'.format(e))
 
     def process(self, queue):
+        """ Function that handles a queue of file urls """
+
         self.stats['total_images'] = len(queue)
         if self.multi == False:
             self.handle(queue)
@@ -80,6 +84,8 @@ class Downloader:
             self.save_states()
 
     def handle_multi(self, queue):
+        """ Function that handles the downloads with multi-threading. """
+
         download_queue = []
         adapter_queue = []
         it = 0
@@ -92,6 +98,8 @@ class Downloader:
                     for request in executor.map(self.download, download_queue):
                         item = request['item']
                         response = request['response']
+
+                        # If the HTTP Request was a failure
                         if not response['status']:
                             print(response)
                             exit()
@@ -102,9 +110,9 @@ class Downloader:
                             print('[error] Could not download file: "{}"'.format(item['url']))
                             it += 1
 
-
                             continue
 
+                        # If the current and previous checksums match verification
                         if item['destination'] in self.states:
                             if self.states[item['destination']] == hashit(response['content']):
                                 text = '[info] Identical file: "{}" found.'.format(item['url'])
@@ -140,6 +148,7 @@ class Downloader:
                 download_queue.clear()
                 print('{}/{}'.format(it, count))
 
+        # Last download trial if the queue is not empty
         if len(download_queue) > 0:
             with PE(max_workers=self.bulksize) as executor:
                 for request in executor.map(self.download, download_queue):
@@ -193,7 +202,7 @@ class Downloader:
             download_queue.clear()
 
     def handle(self, queue):
-        # Handles downloads without multithreading
+        """ Handles downloads without multithreading. """
 
         upload_queue = []
         for item in queue:
@@ -259,7 +268,7 @@ class Downloader:
             print('[error]', e)
 
     def download(self, item):
-        """ Downloads a single file and returns the HTTP response """
+        """ Downloads a single file and returns the HTTP response. """
 
         if self.session is None:
             self.session = RequestSession()
@@ -284,6 +293,8 @@ class Downloader:
             return { 'item': item, 'response': { 'status': False, 'error': e, 'url': item['url'] } }
 
     def handle_upload_stats(self, stats):
+        """ Appends upload stats to the local stats variable. """
+
         total_successes = len(stats['successes'])
         total_errors = len(stats['errors'])
         self.stats['uploads']['total_successes'] += total_successes
@@ -296,10 +307,13 @@ class Downloader:
             self.stats['uploads']['errors'][it] = error
 
     def get_stats(self):
+        """ Returns the variable containing information about the whole process. """
+
         return self.stats
 
     def save_states(self):
         """ Saves all the checksums to a file """
+
         outputtext = ''
         for (key, value) in self.states.items():
             outputtext += '{} {}\n'.format(key, value)
@@ -309,4 +323,6 @@ class Downloader:
                 f.write(outputtext)
 
     def get_states_file(self):
+        """ Returns the local file path of the checksum file. """
+
         return os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id))
