@@ -36,13 +36,16 @@ class Downloader:
             }
         }
 
+        self.identicals = {}
+
         if not self.stateless:
             self.state_id = state_id
             if self.state_id is None:
                 from uuid import uuid4
                 self.state_id = str(uuid4())
 
-            self.states = {}
+            self.states     = {}
+            self.old_states = {}
 
         self.verbose = verbose
 
@@ -66,7 +69,7 @@ class Downloader:
                 while line:
                     checksum = line.strip()
                     destination, checksum = checksum.split(" ")
-                    self.states[destination] = checksum
+                    self.old_states[destination] = checksum
                     line = f.readline()
         except Exception as e:
             print('[error] Could not load states. reason: {}'.format(e))
@@ -113,8 +116,9 @@ class Downloader:
                             continue
 
                         # If the current and previous checksums match verification
-                        if item['destination'] in self.states:
-                            if self.states[item['destination']] == hashit(response['content']):
+                        response_hash = hashit(response['content'])
+                        if item['destination'] in self.old_states:
+                            if self.old_states[item['destination']] == response_hash:
                                 text = '[info] Identical file: "{}" found.'.format(item['url'])
                                 if self.verbose:
                                     print(text)
@@ -123,11 +127,14 @@ class Downloader:
                                 index = len(self.stats['ignored']['files'])
                                 self.stats['ignored']['files'][index] = item
                                 self.stats['ignored']['total'] += 1
+
+                                self.identicals[item['destination']] = True
+
                                 it += 1
 
                                 continue
 
-                        self.states[item['destination']] = hashit(response['content'])
+                        self.states[item['destination']] = response_hash
 
                         adapter_queue.append({
                             'destination': item['destination'],
@@ -136,6 +143,7 @@ class Downloader:
                         })
 
                         del response['content']
+                        response['destination'] = item['destination']
 
                         it = self.stats['downloads']['total_successes']
                         self.stats['downloads']['successes'][it] = response
@@ -163,8 +171,9 @@ class Downloader:
 
                         continue
 
-                    if item['destination'] in self.states:
-                        if self.states[item['destination']] == hashit(response['content']):
+                    response_hash = hashit(response['content'])
+                    if item['destination'] in self.old_states:
+                        if self.old_states[item['destination']] == response_hash:
                             text = '[info] Identical file: "{}" found.'.format(item['url'])
                             if self.verbose:
                                 print(text)
@@ -176,9 +185,13 @@ class Downloader:
                             self.stats['ignored']['files'][index] = item
                             self.stats['ignored']['total'] += 1
 
+                            self.identicals[item['destination']] = True
+
+                            it += 1
+
                             continue
 
-                    self.states[item['destination']] = hashit(response['content'])
+                    self.states[item['destination']] = response_hash
 
                     adapter_queue.append({
                         'destination': item['destination'],
@@ -187,6 +200,7 @@ class Downloader:
                     })
 
                     response = {
+                        'destination': item['destination'],
                         'url': response['url'],
                         'httpcode': response['httpcode'],
                         'status': response['status'],
@@ -219,8 +233,9 @@ class Downloader:
 
                     continue
 
-                if item['destination'] in self.states:
-                    if self.states[item['destination']] == hashit(http_response['content']):
+                response_hash = hashit(http_response['content'])
+                if item['destination'] in self.old_states:
+                    if self.old_states[item['destination']] == response_hash:
                         text = '[info] Identical file: "{}" found.'.format(item['url'])
                         print(text)
 
@@ -231,9 +246,13 @@ class Downloader:
                         self.stats['ignored']['files'][index] = item
                         self.stats['ignored']['total'] += 1
 
+                        self.identicals[item['destination']] = True
+
+                        it += 1
+
                         continue
 
-                self.states[item['destination']] = hashit(http_response['content'])
+                self.states[item['destination']] = response_hash
 
                 upload_queue.append({
                     'destination': item['destination'],
@@ -242,6 +261,7 @@ class Downloader:
                 })
 
                 response = {
+                    'destination': item['destination'],
                     'url': http_response['url'],
                     'httpcode': http_response['httpcode'],
                     'status': http_response['status'],
@@ -326,3 +346,11 @@ class Downloader:
         """ Returns the local file path of the checksum file. """
 
         return os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id))
+
+    def get_state(self, key):
+        """ Returns the md5 checksum string if the key exists """
+
+        if not key in self.states:
+            return False
+
+        return self.states[key]
