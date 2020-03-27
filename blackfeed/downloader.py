@@ -4,9 +4,11 @@ from requests.exceptions import RequestException
 from blackfeed.helper.hasher import hashit
 import os, tempfile
 
+
 class Downloader:
     bulksize = 50
     session = None
+    __callback = None
 
     def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None, verbose=False):
         self.adapter = adapter
@@ -91,6 +93,8 @@ class Downloader:
 
         download_queue = []
         adapter_queue = []
+        callback_queue = []
+
         it = 0
         count = self.stats['total_images']
         for item in queue:
@@ -132,6 +136,13 @@ class Downloader:
 
                                 it += 1
 
+                                # If callback function is set
+                                if self.__callback is not None:
+                                    del response['content']
+                                    response['destination'] = item['destination']
+
+                                    callback_queue.append(response)
+
                                 continue
 
                         self.states[item['destination']] = response_hash
@@ -145,6 +156,9 @@ class Downloader:
                         del response['content']
                         response['destination'] = item['destination']
 
+                        if self.__callback is not None:
+                            callback_queue.append(response)
+
                         it = self.stats['downloads']['total_successes']
                         self.stats['downloads']['successes'][it] = response
                         self.stats['downloads']['total_successes'] += 1
@@ -155,6 +169,12 @@ class Downloader:
                 adapter_queue.clear()
                 download_queue.clear()
                 print('{}/{}'.format(it, count))
+
+                # Callback
+                if self.__callback is not None:
+                    self.__callback(callback_queue)
+
+                    callback_queue.clear()
 
         # Last download trial if the queue is not empty
         if len(download_queue) > 0:
@@ -189,6 +209,13 @@ class Downloader:
 
                             it += 1
 
+                            # If callback is set
+                            if self.__callback is not None:
+                                del response['content']
+                                response['destination'] = item['destination']
+
+                                callback_queue.append(response)
+
                             continue
 
                     self.states[item['destination']] = response_hash
@@ -206,6 +233,10 @@ class Downloader:
                         'status': response['status'],
                         'content-type': response['content-type']
                     }
+
+                    if self.__callback is not None:
+                        callback_queue.append(response)
+
                     it = self.stats['downloads']['total_successes']
                     self.stats['downloads']['successes'][it] = response
                     self.stats['downloads']['total_successes'] += 1
@@ -214,6 +245,12 @@ class Downloader:
             self.handle_upload_stats(stats)
             adapter_queue.clear()
             download_queue.clear()
+
+            # Callback
+            if self.__callback is not None:
+                self.__callback(callback_queue)
+
+                callback_queue.clear()
 
     def handle(self, queue):
         """ Handles downloads without multithreading. """
@@ -354,3 +391,6 @@ class Downloader:
             return False
 
         return self.states[key]
+
+    def set_callback(self, callback):
+        self.__callback = callback

@@ -55,8 +55,16 @@ payload = [
     }
 ]
 
-downloader = Downloader(S3Adapter(bucket='pychecksum'), multi=True, stateless=False, state_id='states')
-downloader.load_states('states')
+
+def callback(queue):
+    print("QUEUE: ", queue)
+
+
+downloader = Downloader(S3Adapter(bucket='publicar-dev'), multi=True, stateless=False, state_id='states')
+
+downloader.set_callback(callback)
+
+# downloader.load_states('states')
 downloader.process(payload)
 stats = downloader.get_stats()
 

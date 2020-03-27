@@ -56,6 +56,23 @@ downloader = Downloader(
     stateless=False,
     state_id='filename'
 )
+
+# You can add a callback function if needed
+# This function will be called after each bulk is processed
+def callback(responses):
+    # response: {
+    #    'destination': destination of the file can be local or can be S3 key,
+    #    'url': URL from where the file was downloaded,
+    #    'httpcode': HTTP code returned by the server,
+    #    'status': True|False,
+    #    'content-type': Mime type of the downloaded resource Example: image/jpeg
+    # }
+    # responses: response[]
+
+    pass # Your logic
+
+downloader.set_callback(callback)
+
 downloader.load_states('filename') # This will load states from "filename.txt"
 downloader.process(queue)
 stats = downloader.get_stats() # Statistics 
