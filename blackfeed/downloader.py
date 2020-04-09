@@ -10,12 +10,13 @@ class Downloader:
     session = None
     __callback = None
 
-    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None, verbose=False):
+    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None, verbose=False, auto_save_states=False):
         self.adapter = adapter
         self.multi = multi
         self.bulksize = bulksize
 
         self.stateless = stateless
+        self.__auto_save_states = auto_save_states
 
         self.session = RequestSession()
         self.stats = {
@@ -46,7 +47,7 @@ class Downloader:
                 from uuid import uuid4
                 self.state_id = str(uuid4())
 
-            self.states     = {}
+            self.states = {}
             self.old_states = {}
 
         self.verbose = verbose
@@ -85,7 +86,7 @@ class Downloader:
         else:
             self.handle_multi(queue)
 
-        if self.stateless == False:
+        if self.stateless == False and self.__auto_save_states:
             self.save_states()
 
     def handle_multi(self, queue):
@@ -368,16 +369,19 @@ class Downloader:
 
         return self.stats
 
-    def save_states(self):
-        """ Saves all the checksums to a file """
+    def save_states(self, callback=None):
+        """ Saves all the checksums to a file by default, but accepts a callback function and gives to it the states """
 
-        outputtext = ''
+        if callback is not None and callable(callback):
+            return callback(self.states)
+
+        output_text = ''
         for (key, value) in self.states.items():
-            outputtext += '{} {}\n'.format(key, value)
+            output_text += '{} {}\n'.format(key, value)
 
-        if outputtext != '':
+        if output_text != '':
             with open(os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id)), 'w') as f:
-                f.write(outputtext)
+                f.write(output_text)
 
     def get_states_file(self):
         """ Returns the local file path of the checksum file. """
