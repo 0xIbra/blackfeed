@@ -134,6 +134,7 @@ class Downloader:
                     for request in executor.map(self.download, download_queue):
                         item = request['item']
                         response = request['response']
+                        response['identical'] = False
 
                         # If the HTTP Request was a failure
                         if not response['status']:
@@ -162,6 +163,7 @@ class Downloader:
                                 self.stats['ignored']['total'] += 1
 
                                 self.identicals[item['destination']] = True
+                                response['identical'] = True
 
                                 it += 1
 
@@ -211,6 +213,8 @@ class Downloader:
                 for request in executor.map(self.download, download_queue):
                     item = request['item']
                     response = request['response']
+                    response['identical'] = False
+
                     if not response['status']:
                         it = self.stats['downloads']['total_errors']
                         self.stats['downloads']['errors'][it] = response
@@ -235,6 +239,7 @@ class Downloader:
                             self.stats['ignored']['total'] += 1
 
                             self.identicals[item['destination']] = True
+                            response['identical'] = True
 
                             it += 1
 
@@ -260,7 +265,8 @@ class Downloader:
                         'url': response['url'],
                         'httpcode': response['httpcode'],
                         'status': response['status'],
-                        'content-type': response['content-type']
+                        'content-type': response['content-type'],
+                        'identical': response['identical']
                     }
 
                     if self.__callback is not None:
@@ -290,6 +296,7 @@ class Downloader:
                 download = self.download(item)
                 item = download['item']
                 http_response = download['response']
+                http_response['identical'] = False
                 if not http_response['status']:
                     print('[error] Could not download file: "{}"'.format(item['url']))
                     
@@ -306,13 +313,14 @@ class Downloader:
                         print(text)
 
                         item['message'] = text
-                        item['content-type'] = response['content-type']
+                        item['content-type'] = http_response['content-type']
 
                         index = len(self.stats['ignored']['files'])
                         self.stats['ignored']['files'][index] = item
                         self.stats['ignored']['total'] += 1
 
                         self.identicals[item['destination']] = True
+                        http_response['identical'] = True
 
                         it += 1
 
