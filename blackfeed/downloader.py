@@ -2,7 +2,9 @@ from concurrent.futures import ThreadPoolExecutor as PE
 from requests import session as RequestSession
 from requests.exceptions import RequestException
 from blackfeed.helper.hasher import hashit
-import os, tempfile
+from datetime import datetime
+import tempfile
+import os
 
 
 class Downloader:
@@ -21,6 +23,9 @@ class Downloader:
         self.session = RequestSession()
         self.stats = {
             'total_images': 0,
+            'total_duration': 0,
+            'average_duration': 0,
+            'average_queue_count': 0,
             'ignored': {
                 'total': 0,
                 'files': {}
@@ -38,6 +43,9 @@ class Downloader:
                 'errors': {}
             }
         }
+
+        self.__processes_queue_counts = []
+        self.__processes_durations = []
 
         self.identicals = {}
 
@@ -80,7 +88,14 @@ class Downloader:
     def process(self, queue):
         """ Function that handles a queue of file urls """
 
-        self.stats['total_images'] += len(queue)
+        start_time = datetime.now()
+
+        # Saving the count of the queue for current process
+        current_count = len(queue)
+        self.__processes_queue_counts.append(current_count)
+
+        self.stats['total_images'] += current_count
+
         if self.multi == False:
             self.handle(queue)
         else:
@@ -88,6 +103,19 @@ class Downloader:
 
         if self.stateless == False and self.__auto_save_states:
             self.save_states()
+
+        end_time = datetime.now()
+
+        # Saving the duration for current process
+        current_duration = round((end_time - start_time).total_seconds())
+        self.__processes_durations.append(current_duration)
+
+        self.stats['total_duration'] += current_duration
+
+        del start_time
+        del end_time
+
+        self.__generate_average_values()
 
     def handle_multi(self, queue):
         """ Function that handles the downloads with multi-threading. """
@@ -400,8 +428,11 @@ class Downloader:
         self.__callback = callback
 
     def reset_stats(self):
-        self.stats =         self.stats = {
+        self.stats = {
             'total_images': 0,
+            'total_duration': 0,
+            'average_duration': 0,
+            'average_queue_count': 0,
             'ignored': {
                 'total': 0,
                 'files': {}
@@ -419,3 +450,20 @@ class Downloader:
                 'errors': {}
             }
         }
+
+    def __generate_average_values(self):
+        self.stats['average_duration'] = round(Downloader.average(self.__processes_durations))
+        self.stats['average_queue_count'] = round(Downloader.average(self.__processes_queue_counts))
+
+    @staticmethod
+    def average(values: list):
+        count = len(values)
+        if count <= 0:
+            return False
+
+        result = 0
+        for i in values:
+            result += i
+            ave_num = result / count
+
+        return ave_num
