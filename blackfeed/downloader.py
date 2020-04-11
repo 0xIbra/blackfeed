@@ -80,7 +80,7 @@ class Downloader:
     def process(self, queue):
         """ Function that handles a queue of file urls """
 
-        self.stats['total_images'] = len(queue)
+        self.stats['total_images'] += len(queue)
         if self.multi == False:
             self.handle(queue)
         else:
@@ -398,3 +398,24 @@ class Downloader:
 
     def set_callback(self, callback):
         self.__callback = callback
+
+    def reset_stats(self):
+        self.stats =         self.stats = {
+            'total_images': 0,
+            'ignored': {
+                'total': 0,
+                'files': {}
+            },
+            'downloads': {
+                'total_successes': 0,
+                'total_errors': 0,
+                'successes': {},
+                'errors': {}
+            },
+            'uploads': {
+                'total_successes': 0,
+                'total_errors': 0,
+                'successes': {},
+                'errors': {}
+            }
+        }
