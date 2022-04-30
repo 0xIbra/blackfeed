@@ -8,19 +8,19 @@ import os
 
 
 class Downloader:
-    bulksize = 50
+    bulk_size = 50
     session = None
     __callback = None
 
-    def __init__(self, adapter, multi=False, bulksize=50, stateless=True, state_id=None, verbose=False, auto_save_states=False):
-        self.adapter = adapter
-        self.multi = multi
-        self.bulksize = bulksize
+    def __init__(self, adapter, multi=False, bulk_size=50, stateless=True, state_id=None, verbose=False, auto_save_states=False):
+        self.__adapter = adapter
+        self.__multi = multi
+        self.__bulk_size = bulk_size
 
-        self.stateless = stateless
+        self.__stateless = stateless
         self.__auto_save_states = auto_save_states
 
-        self.session = RequestSession()
+        self.__session = RequestSession()
         self.stats = {
             'total_images': 0,
             'total_duration': 0,
@@ -47,23 +47,23 @@ class Downloader:
         self.__processes_queue_counts = []
         self.__processes_durations = []
 
-        self.identicals = {}
+        self.__identicals = {}
 
-        if not self.stateless:
-            self.state_id = state_id
-            if self.state_id is None:
+        if not self.__stateless:
+            self.__state_id = state_id
+            if self.__state_id is None:
                 from uuid import uuid4
-                self.state_id = str(uuid4())
+                self.__state_id = str(uuid4())
 
-            self.states = {}
-            self.old_states = {}
+            self.__states = {}
+            self.__old_states = {}
 
-        self.verbose = verbose
+        self.__verbose = verbose
 
     def load_states(self, file_path):
         """ Loads states from local file """
 
-        if self.stateless:
+        if self.__stateless:
             print('[warning] You cannot load states in a stateless environment.')
 
             return False
@@ -80,7 +80,7 @@ class Downloader:
                 while line:
                     checksum = line.strip()
                     destination, checksum = checksum.split(" ")
-                    self.old_states[destination] = checksum
+                    self.__old_states[destination] = checksum
                     line = f.readline()
         except Exception as e:
             print('[error] Could not load states. reason: {}'.format(e))
@@ -96,12 +96,12 @@ class Downloader:
 
         self.stats['total_images'] += current_count
 
-        if self.multi == False:
-            self.handle(queue)
+        if not self.__multi:
+            self.__handle(queue)
         else:
-            self.handle_multi(queue)
+            self.__handle_multi(queue)
 
-        if self.stateless == False and self.__auto_save_states:
+        if not self.__stateless and self.__auto_save_states:
             self.save_states()
 
         end_time = datetime.now()
@@ -117,7 +117,7 @@ class Downloader:
 
         self.__generate_average_values()
 
-    def handle_multi(self, queue):
+    def __handle_multi(self, queue):
         """ Function that handles the downloads with multi-threading. """
 
         download_queue = []
@@ -129,9 +129,9 @@ class Downloader:
         for item in queue:
             download_queue.append(item)
 
-            if (len(download_queue) % self.bulksize) == 0:
-                with PE(max_workers=self.bulksize) as executor:
-                    for request in executor.map(self.download, download_queue):
+            if (len(download_queue) % self.__bulk_size) == 0:
+                with PE(max_workers=self.__bulk_size) as executor:
+                    for request in executor.map(self.__download, download_queue):
                         item = request['item']
                         response = request['response']
                         response['identical'] = False
@@ -151,10 +151,10 @@ class Downloader:
 
                         # If the current and previous checksums match verification
                         response_hash = hashit(response['content'])
-                        if item['destination'] in self.old_states:
-                            if self.old_states[item['destination']] == response_hash:
+                        if item['destination'] in self.__old_states:
+                            if self.__old_states[item['destination']] == response_hash:
                                 text = '[info] Identical file: "{}" found.'.format(item['url'])
-                                if self.verbose:
+                                if self.__verbose:
                                     print(text)
 
                                 item['message'] = text
@@ -162,7 +162,7 @@ class Downloader:
                                 self.stats['ignored']['files'][index] = item
                                 self.stats['ignored']['total'] += 1
 
-                                self.identicals[item['destination']] = True
+                                self.__identicals[item['destination']] = True
                                 response['identical'] = True
 
                                 it += 1
@@ -176,7 +176,7 @@ class Downloader:
 
                                 continue
 
-                        self.states[item['destination']] = response_hash
+                        self.__states[item['destination']] = response_hash
 
                         adapter_queue.append({
                             'destination': item['destination'],
@@ -195,8 +195,8 @@ class Downloader:
                         self.stats['downloads']['total_successes'] += 1
                         it += 1
 
-                stats = self.adapter.process(adapter_queue)
-                self.handle_upload_stats(stats)
+                stats = self.__adapter.process(adapter_queue)
+                self.__handle_upload_stats(stats)
                 adapter_queue.clear()
                 download_queue.clear()
                 print('{}/{}'.format(it, count))
@@ -209,8 +209,8 @@ class Downloader:
 
         # Last download trial if the queue is not empty
         if len(download_queue) > 0:
-            with PE(max_workers=self.bulksize) as executor:
-                for request in executor.map(self.download, download_queue):
+            with PE(max_workers=self.__bulk_size) as executor:
+                for request in executor.map(self.__download, download_queue):
                     item = request['item']
                     response = request['response']
                     response['identical'] = False
@@ -225,10 +225,10 @@ class Downloader:
                         continue
 
                     response_hash = hashit(response['content'])
-                    if item['destination'] in self.old_states:
-                        if self.old_states[item['destination']] == response_hash:
+                    if item['destination'] in self.__old_states:
+                        if self.__old_states[item['destination']] == response_hash:
                             text = '[info] Identical file: "{}" found.'.format(item['url'])
-                            if self.verbose:
+                            if self.__verbose:
                                 print(text)
 
                             item['message'] = text
@@ -238,7 +238,7 @@ class Downloader:
                             self.stats['ignored']['files'][index] = item
                             self.stats['ignored']['total'] += 1
 
-                            self.identicals[item['destination']] = True
+                            self.__identicals[item['destination']] = True
                             response['identical'] = True
 
                             it += 1
@@ -252,7 +252,7 @@ class Downloader:
 
                             continue
 
-                    self.states[item['destination']] = response_hash
+                    self.__states[item['destination']] = response_hash
 
                     adapter_queue.append({
                         'destination': item['destination'],
@@ -276,8 +276,8 @@ class Downloader:
                     self.stats['downloads']['successes'][it] = response
                     self.stats['downloads']['total_successes'] += 1
 
-            stats = self.adapter.process(adapter_queue)
-            self.handle_upload_stats(stats)
+            stats = self.__adapter.process(adapter_queue)
+            self.__handle_upload_stats(stats)
             adapter_queue.clear()
             download_queue.clear()
 
@@ -287,13 +287,13 @@ class Downloader:
 
                 callback_queue.clear()
 
-    def handle(self, queue):
+    def __handle(self, queue):
         """ Handles downloads without multithreading. """
 
         upload_queue = []
         for item in queue:
             try:
-                download = self.download(item)
+                download = self.__download(item)
                 item = download['item']
                 http_response = download['response']
                 http_response['identical'] = False
@@ -307,8 +307,8 @@ class Downloader:
                     continue
 
                 response_hash = hashit(http_response['content'])
-                if item['destination'] in self.old_states:
-                    if self.old_states[item['destination']] == response_hash:
+                if item['destination'] in self.__old_states:
+                    if self.__old_states[item['destination']] == response_hash:
                         text = '[info] Identical file: "{}" found.'.format(item['url'])
                         print(text)
 
@@ -319,14 +319,14 @@ class Downloader:
                         self.stats['ignored']['files'][index] = item
                         self.stats['ignored']['total'] += 1
 
-                        self.identicals[item['destination']] = True
+                        self.__identicals[item['destination']] = True
                         http_response['identical'] = True
 
                         it += 1
 
                         continue
 
-                self.states[item['destination']] = response_hash
+                self.__states[item['destination']] = response_hash
 
                 upload_queue.append({
                     'destination': item['destination'],
@@ -355,20 +355,20 @@ class Downloader:
                 return False
 
             print('[info] Starting to execute adapter...')
-            stats = self.adapter.process(upload_queue)
-            self.handle_upload_stats(stats)
+            stats = self.__adapter.process(upload_queue)
+            self.__handle_upload_stats(stats)
 
         except Exception as e:
             print('[error]', e)
 
-    def download(self, item):
+    def __download(self, item):
         """ Downloads a single file and returns the HTTP response. """
 
         if self.session is None:
             self.session = RequestSession()
 
         try:
-            headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3' }
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.3'}
             url = item['url']
             request = self.session.get(url, headers=headers)
             response = {
@@ -380,13 +380,13 @@ class Downloader:
             if request.ok:
                 response['content'] = request.content
 
-            return { 'item': item, 'response': response }
+            return {'item': item, 'response': response}
         except RequestException as e:
             print('[error]', e)
 
-            return { 'item': item, 'response': { 'status': False, 'error': e, 'url': item['url'] } }
+            return {'item': item, 'response': {'status': False, 'error': e, 'url': item['url']}}
 
-    def handle_upload_stats(self, stats):
+    def __handle_upload_stats(self, stats):
         """ Appends upload stats to the local stats variable. """
 
         total_successes = len(stats['successes'])
@@ -409,28 +409,28 @@ class Downloader:
         """ Saves all the checksums to a file by default, but accepts a callback function and gives to it the states """
 
         if callback is not None and callable(callback):
-            return callback(self.states)
+            return callback(self.__states)
 
         output_text = ''
-        for (key, value) in self.states.items():
+        for (key, value) in self.__states.items():
             output_text += '{} {}\n'.format(key, value)
 
         if output_text != '':
-            with open(os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id)), 'w') as f:
+            with open(os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.__state_id)), 'w') as f:
                 f.write(output_text)
 
     def get_states_file(self):
         """ Returns the local file path of the checksum file. """
 
-        return os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.state_id))
+        return os.path.join(tempfile.gettempdir(), '{}.txt'.format(self.__state_id))
 
     def get_state(self, key):
         """ Returns the md5 checksum string if the key exists """
 
-        if not key in self.states:
+        if key not in self.__states:
             return False
 
-        return self.states[key]
+        return self.__states[key]
 
     def set_callback(self, callback):
         self.__callback = callback

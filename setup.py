@@ -5,7 +5,7 @@ with open('README.md', 'r') as fh:
 
 setuptools.setup(
     name='blackfeed',
-    version='0.0.18',
+    version='0.0.19',
     author='Ibragim Abubakarov',
     author_email='ibragim.ai95@gmail.com',
     maintainer='Ibragim Abubakarov',
@@ -13,7 +13,7 @@ setuptools.setup(
     description='A python package that allows the download of thousands of files concurrently',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/ibragim64/blackfeed',
+    url='https://github.com/ibra-akv/blackfeed',
     packages=['blackfeed', 'blackfeed.adapter', 'blackfeed.helper', 'blackfeed.elastic'],
     install_requires=['requests', 'boto3', 'pysftp'],
     classifiers=[

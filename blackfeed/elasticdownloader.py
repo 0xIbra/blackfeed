@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 import re
 
+
 class ElasticDownloader:
 
     def download(self, uri, localpath=None):

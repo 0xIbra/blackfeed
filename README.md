@@ -16,8 +16,8 @@ pip install blackfeed
 Download and upload files to AWS S3
 **For this to work, AWS CLI must be configured**
 ```python
-from blackfeed.downloader import Downloader
-from blackfeed.adapter.s3 import S3Adapter
+from blackfeed import Downloader
+from blackfeed.adapter import S3Adapter
 
 queue = [
     {
@@ -43,8 +43,8 @@ stats = downloader.get_stats() # Returns a dict with information about the proce
 ### Download files with states
 Loading states can be useful if you don't want to re-download the same file twice.
 ```python
-from blackfeed.downloader import Downloader
-from blackfeed.adapter.s3 import S3Adapter
+from blackfeed import Downloader
+from blackfeed.adapter import S3Adapter
 
 queue = [
 ...
@@ -84,7 +84,7 @@ stats = downloader.get_stats() # Statistics
 ### Examples
 #### Downloading file from FTP 
 ```python
-from blackfeed.elasticdownloader import ElasticDownloader
+from blackfeed import ElasticDownloader
 
 uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
 
@@ -99,7 +99,7 @@ print(res)
 
 ### Retrieving binary content of file from FTP
 ```python
-from blackfeed.elasticdownloader import ElasticDownloader
+from blackfeed import ElasticDownloader
 
 uri = 'ftp://user:password@ftp.server.com/path/to/file.csv'
 

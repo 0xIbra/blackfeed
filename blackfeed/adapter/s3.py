@@ -1,20 +1,19 @@
 from concurrent.futures import ThreadPoolExecutor as PE
 from boto3.exceptions import S3UploadFailedError
-import boto3, mimetypes
+import boto3
+
 
 class S3Adapter:
-    bulksize = 50
-
-    def __init__(self, bucket, bulksize=50, verbose=False):
-        self.client = boto3.client('s3')
-        self.bucket = bucket
-        self.bulksize = bulksize
-        self.verbose = verbose
+    def __init__(self, bucket, bulk_size=100, verbose=False):
+        self.__client = boto3.client('s3')
+        self.__bucket = bucket
+        self.__bulk_size = bulk_size
+        self.__verbose = verbose
 
     def process(self, payload):
-        stats = { 'total': len(payload), 'successes': [], 'errors': [] }
-        with PE(max_workers=self.bulksize) as executor:
-            for response in executor.map(self.upload, payload):
+        stats = {'total': len(payload), 'successes': [], 'errors': []}
+        with PE(max_workers=self.__bulk_size) as executor:
+            for response in executor.map(self.__upload, payload):
                 if response['status'] == False:
                     stats['errors'].append(response)
                 elif response['status'] == True:
@@ -22,17 +21,17 @@ class S3Adapter:
 
         return stats
 
-    def upload(self, item):
+    def __upload(self, item):
         key = item['destination']
         try:
             body = item['body']
-            response = self.client.put_object(Bucket=self.bucket, Key=key, Body=body, ContentType=item['content-type'])
-            if self.verbose:
+            response = self.__client.put_object(Bucket=self.__bucket, Key=key, Body=body, ContentType=item['content-type'])
+            if self.__verbose:
                 print('[info] Uploaded successfully - key: "{}"'.format(key))
 
             response = {
                 'type': 's3',
-                'bucket': self.bucket,
+                'bucket': self.__bucket,
                 'key': key,
                 'status_code': response['ResponseMetadata']['HTTPStatusCode']
             }
@@ -43,4 +42,4 @@ class S3Adapter:
         except S3UploadFailedError as e:
             print('[error] ', e)
 
-            return { 'type': 's3', 'error': e, 'key': key, 'bucket': self.bucket, 'status': False }
+            return {'type': 's3', 'error': e, 'key': key, 'bucket': self.__bucket, 'status': False}
